@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/go-compressions/brand/main/social/go-compressions-adc.png" alt="go-compressions/adc" width="720"></p>
+
 # adc
 
 Decodes **Apple Data Compression** (ADC) — pure Go, `CGO_ENABLED=0`, builds for
