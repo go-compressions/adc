@@ -58,6 +58,34 @@ short matches) and fails if any count is zero.
 |---|---|
 | `ErrTruncated` | an opcode's operands, or a literal run's bytes, reach past the end of the input |
 | `ErrOffset` | a match points further back than the output written so far |
+| `ErrTooLarge` | the stream would produce more than the ceiling (see below) |
+
+## Untrusted input
+
+ADC amplifies: a 3-byte match opcode yields up to 67 bytes (22.3 per input
+byte), and the stream carries no length, so a small file can ask for a great
+deal of memory. Before v0.3.0 the decoder guessed `3 x len(src)` and let the
+output grow by appending: a 3 MB stream that decodes to 67 MB allocated 300 MB
+on the way, and nothing stopped a 48 MB stream from asking for 1 GiB.
+
+```go
+out, err := adc.Decompress(src)              // ceiling: adc.DefaultMaxOutput, 1 GiB
+out, err := adc.DecompressLimit(src, 1<<20)  // you know the chunk holds 1 MiB
+```
+
+The decode is two passes. The first walks the opcodes **without copying**,
+checks every operand against the end of the input and every offset against the
+output produced so far, and stops with `ErrTooLarge` the moment the running
+total passes the ceiling, before anything is allocated. The second allocates
+exactly the output once and fills it. The reference decoder in `dmg2img`
+(`adc.c`) checks the same bound per opcode against the size the caller
+provides; pass the size you know (a UDIF chunk says how many sectors it holds)
+to `DecompressLimit`.
+
+Size arithmetic is in `int64`, so nothing wraps on a 32-bit target. A
+`FuzzDecompress` target compares the decoder against a naive byte-at-a-time
+oracle under a 64 KiB ceiling. The two-pass decode is also faster than the
+append loop it replaced (about 4x on the Apple fixture and on long runs).
 
 ## Who needs it
 
